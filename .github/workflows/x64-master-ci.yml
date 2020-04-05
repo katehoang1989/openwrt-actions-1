@@ -58,7 +58,7 @@ jobs:
     - name: Multi-thread compile
       run: |
           cd openwrt
-          echo -e "$(nproc) thread build."
+          echo -e "$(nproc) thread build." 
           make -j$(nproc) V=s
 
     - name: Single-thread compile
