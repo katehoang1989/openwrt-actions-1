@@ -10,16 +10,15 @@ name: X64-1907
 on:
   schedule:
     - cron: 0 20 * * *
-  push:
-    branches: 
-      - master
+#  push:
+#    branches: 
+#      - master
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
     - name: Initialization environment
       env:
         DEBIAN_FRONTEND: noninteractive
@@ -31,49 +30,56 @@ jobs:
           sudo ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
           sudo -E apt-get -y autoremove --purge
           sudo -E apt-get clean
+          
     - name: Clone source code
       env: 
         REPO_URL: https://github.com/Lienol/openwrt
         REPO_BRANCH: dev-19.07
       run: git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
+      
+    - name: Clone Config
+      env: 
+        REPO_URL: https://github.com/Lienol/openwrt-actions
+      run: git clone --depth 1 $REPO_URL openwrt-config
+      
     - name: Update feeds
       run: cd openwrt && ./scripts/feeds update -a
 
     - name: Install feeds
       run: cd openwrt && ./scripts/feeds install -a
     
-    - name: Costom configure file
+    - name: Custom configure file
       run: |
           cd openwrt
           rm -f .config
-          cp ../x64-1907 .config
-
+          cp ../openwrt-config/x64-1907 .config
+          
+    - name: Make Defconfig
+      run: |
+          cd openwrt
+          make defconfig
     - name: Make download
       run: |
           cd openwrt
           make download -j8
           find dl -size -1024c -exec ls -l {} \;
           find dl -size -1024c -exec rm -f {} \;
-
     - name: Multi-thread compile
       run: |
           cd openwrt
           echo -e "$(nproc) thread build."
           make -j$(nproc) V=s
-
     - name: Single-thread compile
       if: failure()
       run: |
           cd openwrt
           make -j1 V=s
-
     - name: Assemble artifact
       run: |
           rm -rf ./artifact/
           mkdir -p ./artifact/
           find openwrt/bin/targets/ -name "*sysupgrade*bin*" | xargs -i mv -f {} ./artifact/
           find openwrt/bin/targets/ -name "*combined*img*" | xargs -i mv -f {} ./artifact/
-
     - name: Upload artifact
       uses: actions/upload-artifact@master
       with:
